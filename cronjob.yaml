@@ -1,0 +1,56 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-aws-secret
+  namespace: ecr-ns
+type: Opaque
+data:
+  my-access-key: <aws_acess_key>
+  my-secret-key: <aws_secret_key>
+  ---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: aws-refresh-token
+  namespace: ecr-ns
+spec:
+  schedule: "0 */12 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: ecr-sa
+          containers:
+            - name: container-1
+              image: badal773/test:latest
+              imagePullPolicy: IfNotPresent
+              env:
+               - name: YOUR_ACCESS_KEY_ID
+                 valueFrom:
+                    secretKeyRef:
+                          name: my-aws-secret
+                          key: my-access-key
+               - name: YOUR_SECRET_ACCESS_KEY
+                 valueFrom:
+                    secretKeyRef:
+                          name: my-aws-secret
+                          key: my-secret-key
+               - name: YOUR_AWS_DEFAULT_REGION
+                 value: "us-east-2"
+               - name: DOCKER_REGISTRY_SECRET_NAME
+                 value: docker-secret
+
+              command:
+                - /bin/bash
+                - -c
+                - |-
+                  echo "suceesfully starting"
+                  aws configure set aws_access_key_id $YOUR_ACCESS_KEY_ID && \
+                  aws configure set aws_secret_access_key $YOUR_SECRET_ACCESS_KEY && \
+                  aws configure set default.region $YOUR_AWS_DEFAULT_REGION && \
+                  aws configure set default.output json && \
+                  echo "aws configured inside " && \
+                  kubectl patch secret $DOCKER_REGISTRY_SECRET_NAME --namespace ecr-ns --patch "{\"data\": { \"docker-password\": \"$(aws ecr get-login-password | base64 -w0)\" }}"
+                  sleep 1000
+
+          restartPolicy: OnFailure
