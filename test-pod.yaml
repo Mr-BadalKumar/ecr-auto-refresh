@@ -1,0 +1,16 @@
+#create docker-secret by using this command
+# kubectl create secret docker-registry docker-secret --namespace=ecr-ns --docker-server=<aws_account_id>.dkr.ecr.us-west-2.amazonaws.com --docker-username=AWS --docker-password=$(aws ecr get-login-password) 
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: my-pod
+  namespace: ecr-ns
+spec:
+  containers:
+  - name: my-container
+    image: <aws_account_id>.dkr.ecr.us-west-2.amazonaws.com/ecr-refresh-test:latest
+    imagePullPolicy: Always
+  imagePullSecrets:
+  - name: docker-secret 
+  
